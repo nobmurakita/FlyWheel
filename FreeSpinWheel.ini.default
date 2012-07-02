@@ -1,0 +1,13 @@
+[FreeSpinWheel]
+StrokeTimeout = 100
+Acceleration = 1.30
+Deceleration = 0.70
+MaxSpeed = 300
+MinSpeed = 5
+NonStopModeStroke = 0
+StopByMouseMove = on
+StopByLButton = off
+StopByRButton = off
+StopByMButton = off
+Reverse = off
+ShowTooltip = off
