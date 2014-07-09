@@ -30,19 +30,35 @@ IniRead, stopByMouseMove, %iniFile%, FreeSpinWheel, StopByMouseMove, on
 IniRead, stopByLButton, %iniFile%, FreeSpinWheel, StopByLButton, off
 IniRead, stopByRButton, %iniFile%, FreeSpinWheel, StopByRButton, off
 IniRead, stopByMButton, %iniFile%, FreeSpinWheel, StopByMButton, off
-IniRead, reverse, %iniFile%, FreeSpinWheel, Reverse, off
+IniRead, animationIcon, %iniFile%, FreeSpinWheel, AnimationIcon, off
 IniRead, showTooltip, %iniFile%, FreeSpinWheel, ShowTooltip, off
+IniRead, reverse, %iniFile%, FreeSpinWheel, Reverse, off
 stopByMouseMove := (stopByMouseMove = "on")
 stopByLButton := (stopByLButton = "on")
 stopByRButton := (stopByRButton = "on")
 stopByMButton := (stopByMButton = "on")
-reverse := (reverse = "on")
+animationIcon := (animationIcon = "on")
 showTooltip := (showTooltip = "on")
+reverse := (reverse = "on")
 
-; タイマーの起動
+; スクロールと減速用のタイマーの起動
 SetTimer, ScrollTimer, 10
 SetTimer, DecelerateTimer, 100
-SetTimer, TooltipTimer, 100
+
+; アイコン表示用ウィンドウ
+if (animationIcon) {
+    Gui, +LastFound +AlwaysOnTop +ToolWindow -Caption +E0x02080020
+    Gui, Add, Picture, X0 Y0 Vicon, %A_ScriptDir%\spin.png
+    WinSet, Transparent, 196
+    WinSet, Region, E W48 H48 0-0
+    Gui, Show, W196 H48 Hide
+    SetTimer, IconTimer, 10
+}
+
+; ツールチップの表示
+if (showTooltip) {
+    SetTimer, TooltipTimer, 100
+}
 Exit
 
 ; ホイール回転時の処理
@@ -86,6 +102,31 @@ ScrollTimer:
 DecelerateTimer:
     if (speed || line) {
         Decelerate()
+    }
+    return
+
+; アイコン表示用タイマー
+IconTimer:
+    if (animationIcon) {
+        if (speed) {
+            f++
+            f := Mod(f, 4)
+            pos := -f * 48
+            Gui, +LastFound
+            Gui, Color, % (nonStopModeStroke && nonStopModeStroke <= stroke) ? "FF0000" : "666666"
+            GuiControl, MoveDraw, icon, X%pos% Y0
+            WinMove, x, y
+            if (!animationIconShown) {
+                Gui, Show, NA
+                animationIconShown := true
+            }
+        } else {
+            if (animationIconShown) {
+                Gui, +LastFound
+                Gui, Show, Hide
+                animationIconShown := false
+            }
+        }
     }
     return
 
