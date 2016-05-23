@@ -2,9 +2,11 @@
 #MaxHotkeysPerInterval 500
 
 SetBatchLines, -1
+SetKeyDelay, 0
 SetWinDelay, 0
 SetControlDelay, 0
 
+SendMode, Input
 CoordMode, Mouse, Screen
 CoordMode, ToolTip, Screen
 
@@ -146,13 +148,13 @@ TooltipTimer:
 
 ; ホイール回転時の処理
 WheelSpined(ByRef wheelHist, sign) {
-    global speed, line, ctrl, x, y
+    global speed, line, x, y
     if (speed * sign < 0) {
         Stop()
     } else {
         line += sign
         GetSpinSpeed(wheelHist, sign)
-        GetControl(ctrl, x, y)
+        MouseGetPos, x, y
         Scroll()
     }
 }
@@ -186,12 +188,12 @@ GetSpinSpeed(ByRef wheelHist, sign) {
 
 ; スクロール
 Scroll() {
-    global speed, line, ctrl, x, y, stopByMouseMove, reverse
+    global speed, line, x, y, stopByMouseMove, reverse
     static tickCount
     elapsed := tickCount ? (A_TickCount - tickCount) : 1
     tickCount := A_TickCount
     prevX := x, prevY := y
-    GetControl(ctrl, x, y)
+    MouseGetPos, x, y
     if (stopByMouseMove && (25 < (x - prevX) ** 2 + (y - prevY) ** 2)) {
         Stop()
     } else {
@@ -199,13 +201,9 @@ Scroll() {
         notch := line < 0 ? Ceil(line) : Floor(line)
         line -= notch
         if (notch) {
-            wheelMax := notch < 0 ? -273 : 273
-            loop Abs(notch / wheelMax)
-            {
-                PostMouseWheel(ctrl, wheelMax, x, y, reverse)
-            }
-            notch := Mod(notch, wheelMax)
-            PostMouseWheel(ctrl, notch, x, y, reverse)
+            wheel := (notch > 0) ? "WheelUp" : "WheelDown"
+            count := Abs(notch)
+            Send, {Blind}{%wheel% %count%}
         }
     }
 }
@@ -225,32 +223,4 @@ Decelerate() {
 Stop() {
     global stroke, speed, line
     stroke := speed := line := 0
-}
-
-; マウスポインタ位置のコントロールを取得
-GetControl(ByRef ctrl, ByRef x, ByRef y) {
-    MouseGetPos, x, y, win, ctrl, 3
-    if (ctrl) {
-        lParam := (x & 0xFFFF) | (y & 0xFFFF) << 16
-        SendMessage, 0x84, 0, lParam,, ahk_id %ctrl%
-        if (ErrorLevel == 0xFFFFFFFF) {
-            MouseGetPos,,,, ctrl, 2
-        }
-    }
-    ctrl := ctrl ? ctrl : win
-}
-
-; コントロールにWM_MOUSEWHEELを投げる
-PostMouseWheel(ctrl, notch, x, y, reverse=false) {
-    delta := (reverse ? -notch : notch) * 120
-    wParam := GetKeyState("LButton")
-            | GetKeyState("RButton") << 1
-            | GetKeyState("Shift") << 2
-            | GetKeyState("Ctrl") << 3
-            | GetKeyState("MButton") << 4
-            | GetKeyState("XButton1") << 5
-            | GetKeyState("XButton2") << 6
-            | (delta & 0xFFFF) << 16
-    lParam := (x & 0xFFFF) | (y & 0xFFFF) << 16
-    PostMessage, 0x20A, wParam, lParam,, ahk_id %ctrl%
 }
