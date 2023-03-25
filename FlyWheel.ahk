@@ -7,11 +7,11 @@ SetWinDelay(0)
 CoordMode("Mouse", "Screen")
 CoordMode("ToolTip", "Screen")
 
-class FreeSpinWheelApp
+class FlyWheelApp
 {
     ; 設定
-    iniFile := A_ScriptDir . "\FreeSpinWheel.ini"
-    iniFileDefault := A_ScriptDir . "\FreeSpinWheel.ini.default"
+    iniFile := A_ScriptDir . "\FlyWheel.ini"
+    iniFileDefault := A_ScriptDir . "\FlyWheel.ini.default"
     cfg := {}
 
     ; ホイール履歴
@@ -43,19 +43,19 @@ class FreeSpinWheelApp
         if (!FileExist(this.iniFile)) {
             FileCopy(this.iniFileDefault, this.iniFile)
         }
-        this.cfg.strokeTimeout := IniRead(this.iniFile, "FreeSpinWheel", "StrokeTimeout", 100)
-        this.cfg.acceleration := IniRead(this.iniFile, "FreeSpinWheel", "Acceleration", 1.30)
-        this.cfg.deceleration := IniRead(this.iniFile, "FreeSpinWheel", "Deceleration", 0.70)
-        this.cfg.maxSpeed := IniRead(this.iniFile, "FreeSpinWheel", "MaxSpeed", 300)
-        this.cfg.minSpeed := IniRead(this.iniFile, "FreeSpinWheel", "MinSpeed", 5)
-        this.cfg.nonStopModeStroke := IniRead(this.iniFile, "FreeSpinWheel", "NonStopModeStroke", 0)
-        this.cfg.stopByMouseMove := IniRead(this.iniFile, "FreeSpinWheel", "StopByMouseMove", "on") == "on"
-        this.cfg.stopByLButton := IniRead(this.iniFile, "FreeSpinWheel", "StopByLButton", "off") == "on"
-        this.cfg.stopByRButton := IniRead(this.iniFile, "FreeSpinWheel", "StopByRButton", "off") == "on"
-        this.cfg.stopByMButton := IniRead(this.iniFile, "FreeSpinWheel", "StopByMButton", "off") == "on"
-        this.cfg.showAnimationIcon := IniRead(this.iniFile, "FreeSpinWheel", "ShowAnimationIcon", "off") == "on"
-        this.cfg.showTooltip := IniRead(this.iniFile, "FreeSpinWheel", "ShowTooltip", "off") == "on"
-        this.cfg.reverse := IniRead(this.iniFile, "FreeSpinWheel", "Reverse", "off") == "on"
+        this.cfg.strokeTimeout := IniRead(this.iniFile, "FlyWheel", "StrokeTimeout", 100)
+        this.cfg.acceleration := IniRead(this.iniFile, "FlyWheel", "Acceleration", 1.30)
+        this.cfg.deceleration := IniRead(this.iniFile, "FlyWheel", "Deceleration", 0.70)
+        this.cfg.maxSpeed := IniRead(this.iniFile, "FlyWheel", "MaxSpeed", 300)
+        this.cfg.minSpeed := IniRead(this.iniFile, "FlyWheel", "MinSpeed", 5)
+        this.cfg.nonStopModeStroke := IniRead(this.iniFile, "FlyWheel", "NonStopModeStroke", 0)
+        this.cfg.stopByMouseMove := IniRead(this.iniFile, "FlyWheel", "StopByMouseMove", "on") == "on"
+        this.cfg.stopByLButton := IniRead(this.iniFile, "FlyWheel", "StopByLButton", "off") == "on"
+        this.cfg.stopByRButton := IniRead(this.iniFile, "FlyWheel", "StopByRButton", "off") == "on"
+        this.cfg.stopByMButton := IniRead(this.iniFile, "FlyWheel", "StopByMButton", "off") == "on"
+        this.cfg.showAnimationIcon := IniRead(this.iniFile, "FlyWheel", "ShowAnimationIcon", "off") == "on"
+        this.cfg.showTooltip := IniRead(this.iniFile, "FlyWheel", "ShowTooltip", "off") == "on"
+        this.cfg.reverse := IniRead(this.iniFile, "FlyWheel", "Reverse", "off") == "on"
 
         ; タスクトレイメニュー設定
         A_TrayMenu.Delete("&Suspend Hotkeys")
@@ -236,7 +236,7 @@ class FreeSpinWheelApp
 
 }
 
-app := FreeSpinWheelApp()
+app := FlyWheelApp()
 app.Start()
 
 ; ホイール回転時の処理
