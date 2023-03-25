@@ -9,6 +9,6 @@ StopByMouseMove = on
 StopByLButton = on
 StopByRButton = on
 StopByMButton = on
-AnimationIcon = on
+ShowAnimationIcon = on
 ShowTooltip = off
 Reverse = off

@@ -1,226 +1,256 @@
-﻿#SingleInstance Force
-#MaxHotkeysPerInterval 500
+#Requires AutoHotkey v2
+#SingleInstance Force
 
-SetBatchLines, -1
-SetKeyDelay, 0
-SetWinDelay, 0
-SetControlDelay, 0
+SetKeyDelay(0)
+SetWinDelay(0)
 
-SendMode, Input
-CoordMode, Mouse, Screen
-CoordMode, ToolTip, Screen
+CoordMode("Mouse", "Screen")
+CoordMode("ToolTip", "Screen")
 
-; タスクトレイメニューの設定
-Menu, Tray, NoStandard
-Menu, Tray, Add, 設定ファイル編集, EditIniFile
-Menu, Tray, Add, 再起動, Reload
-Menu, Tray, Add, 終了, ExitApp
+class FreeSpinWheelApp
+{
+    ; 設定
+    iniFile := A_ScriptDir . "\FreeSpinWheel.ini"
+    iniFileDefault := A_ScriptDir . "\FreeSpinWheel.ini.default"
+    cfg := {}
 
-; iniファイルから設定の読み込み
-iniFileDefault := A_ScriptDir . "\FreeSpinWheel.ini.default"
-iniFile := A_ScriptDir . "\FreeSpinWheel.ini"
-if (!FileExist(iniFile)) {
-    FileCopy, %iniFileDefault%, %iniFile%
+    ; ホイール履歴
+    wheelUpHist := []
+    wheelDownHist := []
+
+    ; スクロール情報
+    scrollAt := A_TickCount
+    stroke := 0
+    speed := 0
+    line := 0
+
+    ; マウス座標
+    x := 0
+    y := 0
+
+    ; アイコン
+    iconWnd := ""
+    iconPic := ""
+    iconShown := false
+    iconFrame := 0
+
+    ; ツールチップ
+    tooltipText := ""
+
+    __New()
+    {
+        ; 設定ファイル読込
+        if (!FileExist(this.iniFile)) {
+            FileCopy(this.iniFileDefault, this.iniFile)
+        }
+        this.cfg.strokeTimeout := IniRead(this.iniFile, "FreeSpinWheel", "StrokeTimeout", 100)
+        this.cfg.acceleration := IniRead(this.iniFile, "FreeSpinWheel", "Acceleration", 1.30)
+        this.cfg.deceleration := IniRead(this.iniFile, "FreeSpinWheel", "Deceleration", 0.70)
+        this.cfg.maxSpeed := IniRead(this.iniFile, "FreeSpinWheel", "MaxSpeed", 300)
+        this.cfg.minSpeed := IniRead(this.iniFile, "FreeSpinWheel", "MinSpeed", 5)
+        this.cfg.nonStopModeStroke := IniRead(this.iniFile, "FreeSpinWheel", "NonStopModeStroke", 0)
+        this.cfg.stopByMouseMove := IniRead(this.iniFile, "FreeSpinWheel", "StopByMouseMove", "on") == "on"
+        this.cfg.stopByLButton := IniRead(this.iniFile, "FreeSpinWheel", "StopByLButton", "off") == "on"
+        this.cfg.stopByRButton := IniRead(this.iniFile, "FreeSpinWheel", "StopByRButton", "off") == "on"
+        this.cfg.stopByMButton := IniRead(this.iniFile, "FreeSpinWheel", "StopByMButton", "off") == "on"
+        this.cfg.showAnimationIcon := IniRead(this.iniFile, "FreeSpinWheel", "ShowAnimationIcon", "off") == "on"
+        this.cfg.showTooltip := IniRead(this.iniFile, "FreeSpinWheel", "ShowTooltip", "off") == "on"
+        this.cfg.reverse := IniRead(this.iniFile, "FreeSpinWheel", "Reverse", "off") == "on"
+
+        ; タスクトレイメニュー設定
+        A_TrayMenu.Delete("&Suspend Hotkeys")
+        A_TrayMenu.Delete("&Pause Script")
+        A_TrayMenu.Delete("E&xit")
+        A_TrayMenu.Add("設定ファイル編集", (*) => Run(this.iniFile))
+        A_TrayMenu.Add("再起動", (*) => Reload())
+        A_TrayMenu.Add("終了", (*) => ExitApp())
+    }
+
+    ; 開始
+    Start()
+    {
+        ; スクロールと減速用のタイマーの起動
+        SetTimer(() => this.Scroll(), 10)
+        SetTimer(() => this.Decelerate(), 100)
+
+        ; アイコン表示
+        if (this.cfg.showAnimationIcon) {
+            ; +E0x02000000(WS_EX_COMPOSITED) +E0x00080000(WS_EX_LAYERED) ちらつき防止
+            this.iconWnd := Gui("+AlwaysOnTop +ToolWindow -Caption +E0x02000000 +E0x00080000")
+            this.iconPic := this.iconWnd.Add("Picture", "X0 Y0", A_ScriptDir . "\spin.png")
+            this.iconWnd.Show("W48 H48 HIDE")
+            WinSetRegion("0-0 W48 H48 E", this.iconWnd)
+            SetTimer(() => this.UpdateIcon(), 10)
+        }
+
+        ; ツールチップ表示
+        if (this.cfg.showTooltip) {
+            SetTimer(() => this.UpdateTooltip(), 10)
+        }
+    }
+
+    ; ホイール上回転
+    WheelUp()
+    {
+        this.wheelUpHist := this.WheelSpined(this.wheelUpHist, 1)
+    }
+
+    ; ホイール下回転
+    WheelDown()
+    {
+        this.wheelDownHist := this.WheelSpined(this.wheelDownHist, -1)
+    }
+
+    ; ホイール回転
+    WheelSpined(wheelHist, direction)
+    {
+        MouseGetPos(&x, &y)
+        this.x := x
+        this.y := y
+        if (this.speed * direction < 0) {
+            this.Stop()
+        } else {
+            this.line += direction
+            wheelHist := this.GetSpinSpeed(wheelHist, direction)
+            this.Scroll()
+        }
+        return wheelHist
+    }
+
+    ; 回転速度取得
+    GetSpinSpeed(wheelHist, direction)
+    {
+        time := 0
+        tickCount := A_TickCount
+        newHist := [tickCount]
+        Loop wheelHist.Length
+        {
+            h := wheelHist[A_Index]
+            dt := tickCount - h
+            if (dt <= this.cfg.strokeTimeout) {
+                time += dt
+                tickCount := h
+                newHist.Push(tickCount)
+            } else {
+                break
+            }
+        }
+        this.stroke := newHist.Length
+        if (this.stroke == 1 || time == 0) {
+            this.speed := 0
+        } else {
+            this.speed := this.stroke / time * 1000
+            this.speed *= this.cfg.acceleration ** (this.stroke - 1)
+            this.speed := this.speed < this.cfg.maxSpeed ? this.speed : this.cfg.maxSpeed
+            this.speed *= direction
+        }
+        return newHist
+    }
+
+    ; スクロール
+    Scroll()
+    {
+        if (this.speed || this.line) {
+            if (this.cfg.stopByMouseMove) {
+                MouseGetPos(&x, &y)
+                prevX := this.x, this.x := x
+                prevY := this.y, this.y := y
+                if (25 < (this.x - prevX) ** 2 + (this.y - prevY) ** 2) {
+                    this.Stop()
+                    return
+                }
+            }
+            dt := A_TickCount - this.scrollAt
+            this.scrollAt := A_TickCount
+            this.line += dt * this.speed / 1000
+            notch := this.line < 0 ? Ceil(this.line) : Floor(this.line)
+            this.line -= notch
+            if (notch) {
+                if (this.cfg.reverse) {
+                    notch := -notch
+                }
+                wheel := notch > 0 ? "WheelUp" : "WheelDown"
+                count := Abs(notch)
+                Send(Format("{Blind}{{1} {2}}", wheel, count))
+            }
+        }
+    }
+
+    ; 減速
+    Decelerate()
+    {
+        if (this.cfg.nonStopModeStroke == 0 || this.stroke < this.cfg.nonStopModeStroke) {
+            if (this.speed || this.line) {
+                this.speed *= 1 - this.cfg.deceleration ** (this.stroke - 1)
+                if (Abs(this.line) < 1 && Abs(this.speed) < this.cfg.minSpeed) {
+                    this.Stop()
+                }
+            }
+        }
+    }
+
+    ; 停止
+    Stop()
+    {
+        this.stroke := 0
+        this.speed := 0
+        this.line := 0
+    }
+
+    ; アイコン更新
+    UpdateIcon()
+    {
+        if (this.speed) {
+            this.iconFrame := Mod(this.iconFrame + 1, 4)
+            this.iconPic.Move(this.iconFrame * -48, 0)
+            nonStop := this.cfg.nonStopModeStroke && this.cfg.nonStopModeStroke <= this.stroke
+            this.iconWnd.BackColor := nonStop ? "FF0000" : "666666"
+            MouseGetPos(&x, &y)
+            this.iconWnd.Move(x, y)
+            if (!this.iconShown) {
+                this.iconWnd.Show("NA")
+                this.iconShown := true
+            }
+        } else {
+            if (this.iconShown) {
+                this.iconWnd.Show("HIDE")
+                this.iconShown := false
+            }
+        }
+    }
+
+    ; ツールチップ更新
+    UpdateTooltip()
+    {
+        if (this.speed || this.tooltipText) {
+            if (this.speed) {
+                arrow := 0 < this.speed ? "▲" : "▼"
+                intSpeed := Ceil(Abs(this.speed))
+                this.tooltipText := Format("{1}[stroke:{2}][speed:{3}]", arrow, this.stroke, intSpeed)
+            } else {
+                this.tooltipText := ""
+            }
+            Tooltip this.tooltipText
+        }
+    }
+
 }
-IniRead, strokeTimeout , %iniFile%, FreeSpinWheel, StrokestrokeTimeout , 100
-IniRead, acceleration, %iniFile%, FreeSpinWheel, Acceleration, 1.30
-IniRead, deceleration, %iniFile%, FreeSpinWheel, Deceleration, 0.70
-IniRead, maxSpeed, %iniFile%, FreeSpinWheel, MaxSpeed, 300
-IniRead, minSpeed, %iniFile%, FreeSpinWheel, MinSpeed, 5
-IniRead, nonStopModeStroke, %iniFile%, FreeSpinWheel, NonStopModeStroke, 0
-IniRead, stopByMouseMove, %iniFile%, FreeSpinWheel, StopByMouseMove, on
-IniRead, stopByLButton, %iniFile%, FreeSpinWheel, StopByLButton, off
-IniRead, stopByRButton, %iniFile%, FreeSpinWheel, StopByRButton, off
-IniRead, stopByMButton, %iniFile%, FreeSpinWheel, StopByMButton, off
-IniRead, animationIcon, %iniFile%, FreeSpinWheel, AnimationIcon, off
-IniRead, showTooltip, %iniFile%, FreeSpinWheel, ShowTooltip, off
-IniRead, reverse, %iniFile%, FreeSpinWheel, Reverse, off
-stopByMouseMove := (stopByMouseMove = "on")
-stopByLButton := (stopByLButton = "on")
-stopByRButton := (stopByRButton = "on")
-stopByMButton := (stopByMButton = "on")
-animationIcon := (animationIcon = "on")
-showTooltip := (showTooltip = "on")
-reverse := (reverse = "on")
 
-; スクロールと減速用のタイマーの起動
-SetTimer, ScrollTimer, 10
-SetTimer, DecelerateTimer, 100
-
-; アイコン表示用ウィンドウ
-if (animationIcon) {
-    Gui, +LastFound +AlwaysOnTop +ToolWindow -Caption +E0x02080020
-    Gui, Add, Picture, X0 Y0 Vicon, %A_ScriptDir%\spin.png
-    WinSet, Transparent, 196
-    WinSet, Region, E W48 H48 0-0
-    Gui, Show, W196 H48 Hide
-    SetTimer, IconTimer, 10
-}
-
-; ツールチップの表示
-if (showTooltip) {
-    SetTimer, TooltipTimer, 100
-}
-Exit
+app := FreeSpinWheelApp()
+app.Start()
 
 ; ホイール回転時の処理
-*WheelUp::WheelSpined(wheelUpHist, 1)
-*WheelDown::WheelSpined(wheelDownHist, -1)
+*WheelUp::app.WheelUp()
+*WheelDown::app.WheelDown()
 
 ; 左ボタンによるスクロール停止
-#if (stopByLButton && speed)
-*LButton::Stop()
+#HotIf (app.cfg.stopByLButton && app.speed)
+*LButton::app.Stop()
 
 ; 右ボタンによるスクロール停止
-#if (stopByRButton && speed)
-*RButton::Stop()
+#HotIf (app.cfg.stopByRButton && app.speed)
+*RButton::app.Stop()
 
 ; 中ボタンによるスクロール停止
-#if (stopByMButton && speed)
-*MButton::Stop()
-
-; 設定ファイル編集
-EditIniFile:
-    Run, %iniFile%
-    return
-
-; 再起動
-Reload:
-    Reload
-    return
-
-; 終了
-ExitApp:
-    ExitApp
-
-; スクロール用タイマー
-ScrollTimer:
-    if (speed || line) {
-        Scroll()
-    }
-    return
-
-; 減速用タイマーー
-DecelerateTimer:
-    if (speed || line) {
-        Decelerate()
-    }
-    return
-
-; アイコン表示用タイマー
-IconTimer:
-    if (animationIcon) {
-        if (speed) {
-            f++
-            f := Mod(f, 4)
-            pos := -f * 48
-            Gui, +LastFound
-            Gui, Color, % (nonStopModeStroke && nonStopModeStroke <= stroke) ? "FF0000" : "666666"
-            GuiControl, MoveDraw, icon, X%pos% Y0
-            WinMove, x, y
-            if (!animationIconShown) {
-                Gui, Show, NA
-                animationIconShown := true
-            }
-        } else {
-            if (animationIconShown) {
-                Gui, +LastFound
-                Gui, Show, Hide
-                animationIconShown := false
-            }
-        }
-    }
-    return
-
-; ツールチップ表示用タイマー
-TooltipTimer:
-    if (showTooltip && (speed || tooltipText)) {
-        if (speed) {
-            tooltipText := 0 < speed ? "▲" : "▼"
-            tooltipText .= "[stroke:" stroke "]"
-            tooltipText .= "[speed:" Ceil(Abs(speed)) "]"
-        } else {
-            tooltipText := ""
-        }
-        Tooltip, %tooltipText%
-    }
-    return
-
-; ホイール回転時の処理
-WheelSpined(ByRef wheelHist, sign) {
-    global speed, line, x, y
-    if (speed * sign < 0) {
-        Stop()
-    } else {
-        line += sign
-        GetSpinSpeed(wheelHist, sign)
-        MouseGetPos, x, y
-        Scroll()
-    }
-}
-
-; 回転速度を求める
-GetSpinSpeed(ByRef wheelHist, sign) {
-    global strokeTimeout, maxSpeed, stroke, speed, acceleration
-    tickCount := A_TickCount, newHist := tickCount
-    stroke := 1, time := 0
-    Loop, PARSE, wheelHist, CSV
-    {
-        if (tickCount - A_LoopField <= strokeTimeout) {
-            stroke++
-            time += tickCount - A_LoopField
-            tickCount := A_LoopField
-            newHist .= "," . tickCount
-        } else {
-            break
-        }
-    }
-    wheelHist := newHist
-    if (stroke == 1) {
-        speed := 0
-    } else {
-        speed := stroke / time * 1000
-        speed *= acceleration ** (stroke - 1)
-        speed := speed < maxSpeed ? speed : maxSpeed
-        speed *= sign
-    }
-}
-
-; スクロール
-Scroll() {
-    global speed, line, x, y, stopByMouseMove, reverse
-    static tickCount
-    elapsed := tickCount ? (A_TickCount - tickCount) : 1
-    tickCount := A_TickCount
-    prevX := x, prevY := y
-    MouseGetPos, x, y
-    if (stopByMouseMove && (25 < (x - prevX) ** 2 + (y - prevY) ** 2)) {
-        Stop()
-    } else {
-        line += elapsed * speed / 1000
-        notch := line < 0 ? Ceil(line) : Floor(line)
-        line -= notch
-        if (notch) {
-            wheel := (notch > 0) ? "WheelUp" : "WheelDown"
-            count := Abs(notch)
-            Send, {Blind}{%wheel% %count%}
-        }
-    }
-}
-
-; 減速
-Decelerate() {
-    global stroke, speed, line, deceleration, minSpeed, nonStopModeStroke
-    if (nonStopModeStroke == 0 || stroke < nonStopModeStroke) {
-        speed *= 1 - deceleration ** (stroke - 1)
-        if (Abs(line) < 1 && Abs(speed) < minSpeed) {
-            Stop()
-        }
-    }
-}
-
-; 停止
-Stop() {
-    global stroke, speed, line
-    stroke := speed := line := 0
-}
+#HotIf (app.cfg.stopByMButton && app.speed)
+*MButton::app.Stop()
