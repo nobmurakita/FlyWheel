@@ -1,14 +1,20 @@
-[FlyWheel]
+[Scroll]
 StrokeTimeout = 100
 Acceleration = 1.30
 Deceleration = 0.70
 MaxSpeed = 300
 MinSpeed = 5
 NonStopModeStroke = 0
-StopByMouseMove = on
-StopByLButton = on
-StopByRButton = on
-StopByMButton = on
-ShowAnimationIcon = on
-ShowTooltip = off
-Reverse = off
+Reverse = false
+
+[Stop]
+MouseMove = true
+LButton = true
+RButton = true
+MButton = true
+
+[AnimationIcon]
+Enable = true
+
+[Tooltip]
+Enable = false

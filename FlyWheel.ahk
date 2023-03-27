@@ -1,3 +1,4 @@
+;@Ahk2Exe-Base ../v2/AutoHotkey64.exe
 #Requires AutoHotkey v2
 #SingleInstance Force
 
@@ -43,21 +44,23 @@ class FlyWheelApp
         if (!FileExist(this.iniFile)) {
             FileCopy(this.iniFileDefault, this.iniFile)
         }
-        this.cfg.strokeTimeout := IniRead(this.iniFile, "FlyWheel", "StrokeTimeout", 100)
-        this.cfg.acceleration := IniRead(this.iniFile, "FlyWheel", "Acceleration", 1.30)
-        this.cfg.deceleration := IniRead(this.iniFile, "FlyWheel", "Deceleration", 0.70)
-        this.cfg.maxSpeed := IniRead(this.iniFile, "FlyWheel", "MaxSpeed", 300)
-        this.cfg.minSpeed := IniRead(this.iniFile, "FlyWheel", "MinSpeed", 5)
-        this.cfg.nonStopModeStroke := IniRead(this.iniFile, "FlyWheel", "NonStopModeStroke", 0)
-        this.cfg.stopByMouseMove := IniRead(this.iniFile, "FlyWheel", "StopByMouseMove", "on") == "on"
-        this.cfg.stopByLButton := IniRead(this.iniFile, "FlyWheel", "StopByLButton", "off") == "on"
-        this.cfg.stopByRButton := IniRead(this.iniFile, "FlyWheel", "StopByRButton", "off") == "on"
-        this.cfg.stopByMButton := IniRead(this.iniFile, "FlyWheel", "StopByMButton", "off") == "on"
-        this.cfg.showAnimationIcon := IniRead(this.iniFile, "FlyWheel", "ShowAnimationIcon", "off") == "on"
-        this.cfg.showTooltip := IniRead(this.iniFile, "FlyWheel", "ShowTooltip", "off") == "on"
-        this.cfg.reverse := IniRead(this.iniFile, "FlyWheel", "Reverse", "off") == "on"
+        this.cfg.strokeTimeout := IniRead(this.iniFile, "Scroll", "StrokeTimeout", 100)
+        this.cfg.acceleration := IniRead(this.iniFile, "Scroll", "Acceleration", 1.30)
+        this.cfg.deceleration := IniRead(this.iniFile, "Scroll", "Deceleration", 0.70)
+        this.cfg.maxSpeed := IniRead(this.iniFile, "Scroll", "MaxSpeed", 300)
+        this.cfg.minSpeed := IniRead(this.iniFile, "Scroll", "MinSpeed", 5)
+        this.cfg.nonStopModeStroke := IniRead(this.iniFile, "Scroll", "NonStopModeStroke", 0)
+        this.cfg.reverse := IniRead(this.iniFile, "Scroll", "Reverse", "false") == "true"
+        this.cfg.stopByMouseMove := IniRead(this.iniFile, "Stop", "MouseMove", "true") == "true"
+        this.cfg.stopByLButton := IniRead(this.iniFile, "Stop", "LButton", "false") == "true"
+        this.cfg.stopByRButton := IniRead(this.iniFile, "Stop", "RButton", "false") == "true"
+        this.cfg.stopByMButton := IniRead(this.iniFile, "Stop", "MButton", "false") == "true"
+        this.cfg.showAnimationIcon := IniRead(this.iniFile, "AnimationIcon", "Enable", "false") == "true"
+        this.cfg.showTooltip := IniRead(this.iniFile, "Tooltip", "Enable", "false") == "true"
 
         ; タスクトレイメニュー設定
+        A_IconTip := "フライホイール"
+        TraySetIcon("tray.png")
         A_TrayMenu.Delete("&Suspend Hotkeys")
         A_TrayMenu.Delete("&Pause Script")
         A_TrayMenu.Delete("E&xit")
