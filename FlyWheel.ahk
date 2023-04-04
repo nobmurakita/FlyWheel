@@ -8,6 +8,9 @@ SetWinDelay(0)
 CoordMode("Mouse", "Screen")
 CoordMode("ToolTip", "Screen")
 
+; https://www.autohotkey.com/docs/v2/misc/DPIScaling.htm#Workarounds
+DllCall("SetThreadDpiAwarenessContext", "ptr", -3, "ptr")
+
 class FlyWheelApp
 {
     ; 設定
@@ -78,8 +81,9 @@ class FlyWheelApp
 
         ; アイコン表示
         if (this.cfg.showAnimationIcon) {
+            ; -DPIScale https://www.autohotkey.com/docs/v2/misc/DPIScaling.htm#Gui_DPI_Scaling
             ; +E0x02000000(WS_EX_COMPOSITED) +E0x00080000(WS_EX_LAYERED) ちらつき防止
-            this.iconWnd := Gui("+AlwaysOnTop +ToolWindow -Caption +E0x02000000 +E0x00080000")
+            this.iconWnd := Gui("+AlwaysOnTop +ToolWindow -Caption -DPIScale +E0x02000000 +E0x00080000")
             this.iconPic := this.iconWnd.Add("Picture", "X0 Y0", A_ScriptDir . "\spin.png")
             this.iconWnd.Show("W48 H48 HIDE")
             WinSetRegion("0-0 W48 H48 E", this.iconWnd)
