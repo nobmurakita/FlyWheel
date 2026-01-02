@@ -2,20 +2,48 @@
 #Requires AutoHotkey v2
 #SingleInstance Force
 
+; https://www.autohotkey.com/docs/v2/misc/DPIScaling.htm#Workarounds
+DllCall("SetThreadDpiAwarenessContext", "ptr", -3, "ptr")
+
 SetKeyDelay(0)
 SetWinDelay(0)
 
 CoordMode("Mouse", "Screen")
 CoordMode("ToolTip", "Screen")
 
-; https://www.autohotkey.com/docs/v2/misc/DPIScaling.htm#Workarounds
-DllCall("SetThreadDpiAwarenessContext", "ptr", -3, "ptr")
+A_MaxHotkeysPerInterval := 1000
+
+; 休止/再開
+SetSuspend(state) {
+    Suspend(state)
+    if A_IsSuspended {
+        TraySetIcon("tray.png",, 1)
+        A_TrayMenu.Check("休止/再開")
+    } else {
+        TraySetIcon("tray.png",, 1)
+        A_TrayMenu.Uncheck("休止/再開")
+    }
+}
+
+; タスクトレイ設定
+A_IconTip := "フライホイール"
+A_TrayMenu.Delete()
+A_TrayMenu.Add("設定ファイル編集", (*) => Run(iniFile))
+A_TrayMenu.Add("リロード", (*) => Reload())
+A_TrayMenu.Add("休止/再開", (*) => SetSuspend(-1))
+A_TrayMenu.Add("終了", (*) => ExitApp())
+SetSuspend(0)
+
+; 設定ファイル
+iniFile := A_ScriptDir . "\FlyWheel.ini"
+iniFileDefault := A_ScriptDir . "\FlyWheel.ini.default"
+if (!FileExist(iniFile)) {
+    FileCopy(iniFileDefault, iniFile)
+}
 
 class FlyWheelApp
 {
     ; 設定
-    iniFile := A_ScriptDir . "\FlyWheel.ini"
-    iniFileDefault := A_ScriptDir . "\FlyWheel.ini.default"
     cfg := {}
 
     ; ホイール履歴
@@ -44,32 +72,19 @@ class FlyWheelApp
     __New()
     {
         ; 設定ファイル読込
-        if (!FileExist(this.iniFile)) {
-            FileCopy(this.iniFileDefault, this.iniFile)
-        }
-        this.cfg.strokeTimeout := IniRead(this.iniFile, "Scroll", "StrokeTimeout", 100)
-        this.cfg.acceleration := IniRead(this.iniFile, "Scroll", "Acceleration", 1.30)
-        this.cfg.deceleration := IniRead(this.iniFile, "Scroll", "Deceleration", 0.70)
-        this.cfg.maxSpeed := IniRead(this.iniFile, "Scroll", "MaxSpeed", 300)
-        this.cfg.minSpeed := IniRead(this.iniFile, "Scroll", "MinSpeed", 5)
-        this.cfg.nonStopModeStroke := IniRead(this.iniFile, "Scroll", "NonStopModeStroke", 0)
-        this.cfg.reverse := IniRead(this.iniFile, "Scroll", "Reverse", "false") == "true"
-        this.cfg.stopByMouseMove := IniRead(this.iniFile, "Stop", "MouseMove", "true") == "true"
-        this.cfg.stopByLButton := IniRead(this.iniFile, "Stop", "LButton", "false") == "true"
-        this.cfg.stopByRButton := IniRead(this.iniFile, "Stop", "RButton", "false") == "true"
-        this.cfg.stopByMButton := IniRead(this.iniFile, "Stop", "MButton", "false") == "true"
-        this.cfg.showAnimationIcon := IniRead(this.iniFile, "AnimationIcon", "Enable", "false") == "true"
-        this.cfg.showTooltip := IniRead(this.iniFile, "Tooltip", "Enable", "false") == "true"
-
-        ; タスクトレイメニュー設定
-        A_IconTip := "フライホイール"
-        TraySetIcon("tray.png")
-        A_TrayMenu.Delete("&Suspend Hotkeys")
-        A_TrayMenu.Delete("&Pause Script")
-        A_TrayMenu.Delete("E&xit")
-        A_TrayMenu.Add("設定ファイル編集", (*) => Run(this.iniFile))
-        A_TrayMenu.Add("再起動", (*) => Reload())
-        A_TrayMenu.Add("終了", (*) => ExitApp())
+        this.cfg.strokeTimeout := IniRead(iniFile, "Scroll", "StrokeTimeout", 100)
+        this.cfg.acceleration := IniRead(iniFile, "Scroll", "Acceleration", 1.30)
+        this.cfg.deceleration := IniRead(iniFile, "Scroll", "Deceleration", 0.70)
+        this.cfg.maxSpeed := IniRead(iniFile, "Scroll", "MaxSpeed", 300)
+        this.cfg.minSpeed := IniRead(iniFile, "Scroll", "MinSpeed", 5)
+        this.cfg.nonStopModeStroke := IniRead(iniFile, "Scroll", "NonStopModeStroke", 0)
+        this.cfg.reverse := IniRead(iniFile, "Scroll", "Reverse", "false") == "true"
+        this.cfg.stopByMouseMove := IniRead(iniFile, "Stop", "MouseMove", "true") == "true"
+        this.cfg.stopByLButton := IniRead(iniFile, "Stop", "LButton", "false") == "true"
+        this.cfg.stopByRButton := IniRead(iniFile, "Stop", "RButton", "false") == "true"
+        this.cfg.stopByMButton := IniRead(iniFile, "Stop", "MButton", "false") == "true"
+        this.cfg.showAnimationIcon := IniRead(iniFile, "AnimationIcon", "Enable", "false") == "true"
+        this.cfg.showTooltip := IniRead(iniFile, "Tooltip", "Enable", "false") == "true"
     }
 
     ; 開始
@@ -243,6 +258,7 @@ class FlyWheelApp
 
 }
 
+; 開始
 app := FlyWheelApp()
 app.Start()
 
