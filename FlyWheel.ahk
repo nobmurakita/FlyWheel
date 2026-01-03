@@ -17,7 +17,7 @@ A_MaxHotkeysPerInterval := 1000
 SetSuspend(state) {
     Suspend(state)
     if A_IsSuspended {
-        TraySetIcon("tray.png",, 1)
+        TraySetIcon("tray_suspended.png",, 1)
         A_TrayMenu.Check("休止/再開")
     } else {
         TraySetIcon("tray.png",, 1)
